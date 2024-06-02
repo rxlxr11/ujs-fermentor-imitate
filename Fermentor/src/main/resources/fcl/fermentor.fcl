@@ -1,0 +1,157 @@
+FUNCTION_BLOCK FermentationTankController
+    VAR_INPUT
+        Temperature : REAL; // 发酵罐温度
+        pH : REAL;          // 发酵罐pH值
+        Dissolved_Oxygen : REAL; // 发酵罐溶氧量
+        Foam : REAL;         // 发酵罐泡沫量
+    END_VAR
+
+    VAR_OUTPUT
+        Heating : REAL;      // 加热控制信号
+        Cooling : REAL;      // 冷却控制信号
+        Acid_Addition : REAL; // 酸添加控制信号
+        Alkali_Addition : REAL; // 碱添加控制信号
+        Stirring : REAL;     // 搅拌控制信号
+    END_VAR
+
+
+
+    // 温度模糊术语
+    FUZZIFY Temperature
+        TERM Very_Cold :=  (-10, 0) (0, 1) (10, 0)  ; // 非常冷
+        TERM Cold :=  (0,0) (20,1) (40,0)  ;     // 冷
+        TERM Neutral :=  (20,0) (50,1) (80,0)  ; // 中性
+        TERM Hot :=  (50,0) (80,1) (110,0)  ;    // 热
+        TERM Very_Hot :=  (80,0) (110,1) (140,0)  ;// 非常热
+    END_FUZZIFY
+
+    // pH模糊术语
+    FUZZIFY pH
+        TERM Very_Acidic :=  (0,0) (3,1) (5,0)  ;  // 非常酸
+        TERM Acidic :=  (3,0) (5,1) (7,0)  ;      // 酸
+        TERM Neutral :=  (5,0) (7,1) (9,0)  ;     // 中性
+        TERM Alkaline :=  (7,0) (9,1) (11,0)  ;    // 碱
+        TERM Very_Alkaline :=  (11,0) (12,1) (14,0)  ;// 非常碱
+    END_FUZZIFY
+
+    // 溶氧模糊术语
+    FUZZIFY Dissolved_Oxygen
+        TERM None :=  (0,1) (0,0)  ;       // 无
+        TERM Low :=  (0,0) (15,1) (30,0)  ;     // 低
+        TERM Medium :=  (30,0) (50,1) (70,0)  ; // 中
+        TERM High :=  (70,0) (85,1) (100,0)  ;  // 高
+    END_FUZZIFY
+
+    // 海沫模糊术语
+    FUZZIFY Foam
+        TERM None :=  (0,1) (0,0)  ;       // 无
+        TERM Low :=  (0,0) (15,1) (30,0)  ;     // 低
+        TERM Medium :=  (30,0) (50,1) (70,0)  ; // 中
+        TERM High :=  (70,0) (85,1) (100,0)  ;  // 高
+    END_FUZZIFY
+
+    // 加热控制信号模糊术语
+    DEFUZZIFY Heating
+        TERM Off :=  (0,1) (0,0)  ;       // 关闭
+        TERM Low :=  (0,0) (15,1) (30,0)  ;     // 小开
+        TERM Medium :=  (30,0) (50,1) (70,0)  ; // 中开
+        TERM High :=  (70,0) (85,1) (100,0)  ;  // 大开
+        METHOD : COG;                       // 中心重心法
+        DEFAULT := 0;                       // 默认关闭
+    END_DEFUZZIFY
+
+    // 冷却控制信号模糊术语
+    DEFUZZIFY Cooling
+        TERM Off :=  (0,1) (0,0)  ;       // 关闭
+        TERM Low :=  (0,0) (15,1) (30,0)  ;     // 小开
+        TERM Medium :=  (30,0) (50,1) (70,0)  ; // 中开
+        TERM High :=  (70,0) (85,1) (100,0)  ;  // 大开
+        METHOD : COG;                      // 使用中心重心法解模糊
+        DEFAULT := 0;                      // 默认关闭
+    END_DEFUZZIFY
+
+    // 搅拌控制信号模糊术语
+    DEFUZZIFY Stirring
+        TERM Off :=  (0,1) (0,0)  ;       // 关闭
+        TERM Low :=  (0,0) (15,1) (30,0)  ;     // 小开
+        TERM Medium :=  (30,0) (50,1) (70,0)  ; // 中开
+        TERM High :=  (70,0) (85,1) (100,0)  ;  // 大开
+        METHOD : COG;                      // 使用中心重心法解模糊
+        DEFAULT := 0;                      // 默认关闭
+    END_DEFUZZIFY
+
+    // 加酸控制信号模糊术语
+    DEFUZZIFY Acid_Addition
+        TERM Off :=  (0,1) (0,0)  ;       // 关闭
+        TERM Low :=  (0,0) (15,1) (30,0)  ;     // 小开
+        TERM Medium :=  (30,0) (50,1) (70,0)  ; // 中开
+        TERM High :=  (70,0) (85,1) (100,0)  ;  // 大开
+        METHOD : COG;                      // 使用中心重心法解模糊
+        DEFAULT := 0;                      // 默认关闭
+    END_DEFUZZIFY
+
+    // 加碱控制信号模糊术语
+    DEFUZZIFY Alkali_Addition
+        TERM Off :=  (0,1) (0,0)  ;       // 关闭
+        TERM Low :=  (0,0) (15,1) (30,0)  ;     // 小开
+        TERM Medium :=  (30,0) (50,1) (70,0)  ; // 中开
+        TERM High :=  (70,0) (85,1) (100,0)  ;  // 大开
+        METHOD : COG;                      // 使用中心重心法解模糊
+        DEFAULT := 0;                      // 默认关闭
+    END_DEFUZZIFY
+
+    // 温度控制规则
+    RULEBLOCK Temperature_Rules
+        AND : MIN;
+        RULE 1 : IF Temperature IS Very_Cold THEN Heating IS High, Cooling IS Off;
+        RULE 2 : IF Temperature IS Cold THEN Heating IS Low , Cooling IS Off ;
+        RULE 3 : IF Temperature IS Neutral THEN Heating IS Off , Cooling IS Off ;
+        RULE 4 : IF Temperature IS Hot THEN Cooling IS Low , Heating IS Off ;
+        RULE 5 : IF Temperature IS Very_Hot THEN Cooling IS High , Heating IS Off ;
+    END_RULEBLOCK
+
+    // pH控制规则
+    RULEBLOCK pH_Rules
+        AND : MIN;
+        RULE 1 : IF pH IS Very_Acidic THEN Alkali_Addition IS High , Acid_Addition IS Off;
+        RULE 2 : IF pH IS Acidic THEN Alkali_Addition IS Low , Acid_Addition IS Off;
+        RULE 3 : IF pH IS Neutral THEN Acid_Addition IS Off , Alkali_Addition IS Off;
+        RULE 4 : IF pH IS Alkaline THEN Acid_Addition IS Low , Alkali_Addition IS Off;
+        RULE 5 : IF pH IS Very_Alkaline THEN Acid_Addition IS High , Alkali_Addition IS Off;
+    END_RULEBLOCK
+
+    // 溶氧和海沫控制规则块
+    RULEBLOCK Oxygen_Foam_Rules
+        AND : MIN; // 使用最小操作符合取规则
+        // 当溶氧量低或无，且海沫量低或无时，搅拌小开
+        RULE 1 : IF (Dissolved_Oxygen IS None OR Dissolved_Oxygen IS Low)
+                AND ( Foam IS Low OR Foam IS None)
+                THEN Stirring IS Low;
+
+        RULE 2 : IF (Dissolved_Oxygen IS Medium OR Dissolved_Oxygen IS High)
+                 AND (Foam IS Low OR Foam IS None)
+                 THEN Stirring IS Off;
+
+        RULE 3 : IF (Dissolved_Oxygen IS None OR Dissolved_Oxygen IS Low)
+                 AND Foam IS Medium
+                 THEN Stirring IS Medium;
+
+        RULE 4 : IF (Dissolved_Oxygen IS None OR Dissolved_Oxygen IS Low)
+                 AND Foam IS High
+                 THEN Stirring IS High;
+
+
+        // 当溶氧量高，海沫量高时，搅拌中开
+        RULE 5 : IF Dissolved_Oxygen IS Medium AND Foam IS Medium THEN Stirring IS Medium;
+        // 当溶氧量低，海沫量很高时，搅拌大开
+        RULE 6 : IF Dissolved_Oxygen IS Medium AND Foam IS High THEN Stirring IS High;
+        // 当溶氧量高，海沫量高或很高时，搅拌中开
+        RULE 7 : IF Dissolved_Oxygen IS High AND  Foam IS High
+                THEN Stirring IS Medium;
+        // 当溶氧量很高，海沫量高或很高时，搅拌小开
+        RULE 8 : IF Dissolved_Oxygen IS High AND Foam IS Medium
+                THEN Stirring IS Low;
+
+    END_RULEBLOCK
+
+END_FUNCTION_BLOCK
